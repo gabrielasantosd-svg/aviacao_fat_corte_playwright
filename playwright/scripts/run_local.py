@@ -16,15 +16,17 @@ from pathlib import Path
 # Garante que o diretório do projeto está no path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+
 # Configuração de logging
-Path("logs").mkdir(parents=True, exist_ok=True)
+from settings import settings
+Path(Path(settings.LOG_DB_PATH).parent).mkdir(parents=True, exist_ok=True)
 log_format = "%(asctime)s %(levelname)-8s %(name)s | %(message)s"
 logging.basicConfig(
     level=logging.INFO,
     format=log_format,
     handlers=[
         logging.StreamHandler(sys.stdout),  # console
-        logging.FileHandler("logs/run_local.log", encoding="utf-8"),  # arquivo
+        logging.FileHandler(settings.LOG_DB_PATH, encoding="utf-8"),  # arquivo
     ],
 )
 logging.getLogger("playwright").setLevel(logging.WARNING)  # silencia spam do Playwright

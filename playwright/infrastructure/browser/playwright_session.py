@@ -517,18 +517,9 @@ class PlaywrightSession(AbstractBrowserSession):
 
         # Falhou: salva screenshot de debug e lanca erro descritivo.
         try:
+            from settings import settings
             import os
-
-            debug_path = os.path.normpath(
-                os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)),
-                    "..",
-                    "..",
-                    "..",
-                    "screenshots",
-                    "debug_entrar_fail.png",
-                )
-            )
+            debug_path = os.path.join(settings.SCREENSHOTS_DIR, "debug_entrar_fail.png")
             os.makedirs(os.path.dirname(debug_path), exist_ok=True)
             self._page.screenshot(path=debug_path, full_page=True)
             print(f"[DEBUG] Screenshot salvo em: {debug_path}")
@@ -732,18 +723,9 @@ class PlaywrightSession(AbstractBrowserSession):
     def _save_overlay_debug_screenshot(self) -> None:
         """Salva screenshot de diagnostico quando um overlay desconhecido e detectado."""
         try:
+            from settings import settings
             import os
-
-            debug_path = os.path.normpath(
-                os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)),
-                    "..",
-                    "..",
-                    "..",
-                    "screenshots",
-                    "debug_unknown_overlay.png",
-                )
-            )
+            debug_path = os.path.join(settings.SCREENSHOTS_DIR, "debug_unknown_overlay.png")
             os.makedirs(os.path.dirname(debug_path), exist_ok=True)
             self._page.screenshot(path=debug_path, full_page=False)
             print(f"[dismiss_overlay] Screenshot do overlay desconhecido salvo em: {debug_path}")
