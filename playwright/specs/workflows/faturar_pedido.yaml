@@ -1,0 +1,31 @@
+workflow:
+  id: faturar_pedido
+
+runtime:
+  timeout: 300
+  retries: 3
+
+variables: {}
+
+steps:
+
+  # 1. Abre o Protheus e faz login
+  - action: login
+
+  # 2. Aguarda o menu principal carregar
+  - action: wait_screen
+    screen: menu_principal
+
+  # 3. Busca "Rotina de Corte" na barra de pesquisa do Protheus
+  - action: search_routine
+    value: "Rotina de Corte"
+
+  # 4. Aguarda a tela do GSFAT abrir
+  - action: wait_screen
+    screen: tela_gsfat
+
+  # 5. Screenshot de confirmação
+  - action: screenshot
+    label: "rotina_aberta"
+
+  - action: finish

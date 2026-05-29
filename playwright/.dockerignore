@@ -1,0 +1,80 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+
+# Runtime directories
+logs/
+screenshots/
+replays/
+*.db
+*.sqlite
+*.sqlite3
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+docs/
+*.md
+README*
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Development tools
+.pre-commit-config.yaml
+.flake8
+.pylintrc
+pyproject.toml
+setup.py
+setup.cfg
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# Misc
+*.log
+.mypy_cache/
+.ruff_cache/

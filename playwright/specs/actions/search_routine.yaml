@@ -1,0 +1,17 @@
+action:
+  id: search_routine
+
+description: >
+  Localiza a barra de pesquisa do Protheus webapp,
+  digita o nome da rotina e clica no primeiro resultado.
+
+strategy:
+  - css_selector   # tenta seletores CSS primeiro
+  - text_click     # fallback: clica em elemento com o texto
+
+retry:
+  attempts: 3
+  delay_ms: 1000
+
+validation:
+  wait_after_open_ms: 2000

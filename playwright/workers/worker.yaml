@@ -1,0 +1,16 @@
+worker:
+  id: worker_01
+
+runtime:
+  max_jobs: 1
+
+session:
+  isolated: true
+
+protheus:
+  url: "${PROTHEUS_URL}"
+  headless: false
+  browser: chromium
+
+vision:
+  screenshot_interval_ms: 500

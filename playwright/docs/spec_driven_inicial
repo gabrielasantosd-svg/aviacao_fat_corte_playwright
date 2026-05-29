@@ -1,0 +1,462 @@
+# POC SPEC — PROTHEUS GSFAT VISION AUTOMATION
+
+## Objetivo da POC
+
+Validar que o runtime consegue:
+
+1. abrir o TOTVS Protheus
+2. navegar no módulo GSFAT
+3. identificar telas visualmente
+4. preencher campos
+5. clicar em botões
+6. validar estados
+7. executar workflows determinísticos
+8. operar em workers paralelos isolados
+
+---
+
+# Escopo da POC
+
+## NÃO construir ainda:
+
+* IA generativa
+* recovery inteligente
+* auto-learning
+* semantic AI
+* múltiplos módulos
+
+---
+
+# Construir SOMENTE:
+
+## Runtime determinístico
+
+com:
+
+* OCR
+* template matching
+* state machine
+* spec engine
+* worker runtime
+* fila simples
+
+---
+
+# Meta Técnica
+
+A POC deve conseguir:
+
+```text id="9z4uxu"
+Executar 5 workflows simultâneos
+em sessões isoladas do GSFAT
+com estabilidade > 95%
+```
+
+---
+
+# Arquitetura da POC
+
+```text id="8f21ji"
+Coordinator API
+      ↓
+Redis Queue
+      ↓
+Windows Worker
+      ↓
+GSFAT Runtime
+```
+
+---
+
+# Stack Obrigatória
+
+| Área        | Tecnologia                                                                    |
+| ----------- | ----------------------------------------------------------------------------- |
+| Runtime     | Python 3.12                                                                   |
+| API         | [FastAPI](https://fastapi.tiangolo.com/?utm_source=chatgpt.com)               |
+| Queue       | [Redis](https://redis.io/?utm_source=chatgpt.com)                             |
+| Workers     | [Celery](https://docs.celeryq.dev/?utm_source=chatgpt.com)                    |
+| OCR         | [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR?utm_source=chatgpt.com) |
+| Vision      | [OpenCV](https://opencv.org/?utm_source=chatgpt.com)                          |
+| Desktop     | [pywinauto](https://pywinauto.readthedocs.io/?utm_source=chatgpt.com)         |
+| Config      | YAML                                                                          |
+| Logs        | SQLite                                                                        |
+| Screenshots | Local filesystem                                                              |
+
+---
+
+# Infraestrutura POC
+
+## Coordinator
+
+```yaml id="fvh92r"
+os: linux
+cpu: 4 cores
+ram: 8GB
+```
+
+---
+
+## Workers
+
+```yaml id="3l8b44"
+os: windows 10 pro
+instances: 3
+cpu: 2 vcpu
+ram: 4GB
+resolution: 1920x1080
+scale: 100%
+```
+
+---
+
+# Regra Arquitetural Obrigatória
+
+## 1 Worker = 1 Sessão Visual
+
+Nunca compartilhar:
+
+* mouse
+* teclado
+* foco
+* janela
+
+---
+
+# Estrutura do Projeto
+
+```text id="b3vdzu"
+poc_gsfat/
+│
+├── api/
+├── workers/
+├── runtime/
+├── vision/
+├── actions/
+├── specs/
+│   ├── workflows/
+│   ├── screens/
+│   └── templates/
+├── screenshots/
+├── logs/
+└── replays/
+```
+
+---
+
+# MVP Workflow
+
+## Fluxo obrigatório
+
+A POC deve executar:
+
+```text id="z9uow0"
+1. Abrir Protheus
+2. Login
+3. Entrar GSFAT
+4. Abrir rotina
+5. Informar pedido
+6. Confirmar
+7. Validar retorno
+8. Capturar resultado
+```
+
+---
+
+# SPEC — Workflow
+
+Arquivo:
+
+```text id="r7p6t0"
+specs/workflows/faturar_pedido.yaml
+```
+
+```yaml id="3a3wo7"
+workflow:
+  id: faturar_pedido
+
+runtime:
+  timeout: 300
+  retries: 3
+
+variables:
+  pedido: null
+
+steps:
+
+  - action: wait_screen
+    screen: menu_principal
+
+  - action: shortcut
+    value: "F12"
+
+  - action: wait_screen
+    screen: tela_gsfat
+
+  - action: click_text
+    value: "Incluir"
+
+  - action: type
+    value: "{pedido}"
+
+  - action: key
+    value: ENTER
+
+  - action: assert_text
+    value: "Cliente"
+
+  - action: screenshot
+
+  - action: click_text
+    value: "Confirmar"
+
+  - action: wait_text
+    value: "Nota Fiscal"
+
+  - action: extract_region
+    region: numero_nf
+    output: nota_fiscal
+
+  - action: finish
+```
+
+---
+
+# SPEC — Screens
+
+Arquivo:
+
+```text id="1nmlwa"
+specs/screens/tela_gsfat.yaml
+```
+
+```yaml id="9mds6d"
+screen:
+  id: tela_gsfat
+
+anchors:
+
+  - text: "Faturamento"
+
+  - text: "Cliente"
+
+  - text: "TES"
+
+regions:
+
+  numero_nf:
+    x: 1500
+    y: 120
+    width: 250
+    height: 80
+```
+
+---
+
+# SPEC — Actions
+
+Arquivo:
+
+```text id="80o0z0"
+specs/actions/click_text.yaml
+```
+
+```yaml id="p4xk9o"
+action:
+  id: click_text
+
+strategy:
+  - template
+  - ocr
+
+retry:
+  attempts: 3
+
+validation:
+  verify_click: true
+```
+
+---
+
+# Worker Runtime Spec
+
+Arquivo:
+
+```text id="g4r4om"
+workers/worker.yaml
+```
+
+```yaml id="i6l0ux"
+worker:
+  id: worker_01
+
+runtime:
+  max_jobs: 1
+
+session:
+  isolated: true
+
+protheus:
+  executable: "C:/TOTVS/smartclient.exe"
+
+vision:
+  screenshot_interval_ms: 500
+```
+
+---
+
+# OCR Strategy
+
+## Regra obrigatória
+
+Nunca executar OCR:
+
+* na tela inteira
+* continuamente
+
+---
+
+# Fluxo correto
+
+```text id="j0q4hj"
+Detectar tela
+    ↓
+Mapear regiões
+    ↓
+OCR localizado
+```
+
+---
+
+# Estratégia de Detection
+
+## Prioridade
+
+```text id="8w2o0u"
+1. Atalhos de teclado
+2. Template matching
+3. OCR
+4. Relative coordinates
+```
+
+---
+
+# NÃO usar
+
+```text id="y4lk8m"
+Coordenadas absolutas fixas
+```
+
+---
+
+# Logging obrigatório
+
+Cada step deve registrar:
+
+```yaml id="i34hh8"
+log:
+  timestamp:
+  worker:
+  workflow:
+  step:
+  status:
+  duration_ms:
+```
+
+---
+
+# Screenshot obrigatório
+
+Capturar screenshot:
+
+* antes de erro
+* após transição
+* após conclusão
+
+---
+
+# Replay obrigatório
+
+Salvar:
+
+```yaml id="9yjlwm"
+replay:
+  screenshots:
+  actions:
+  timestamps:
+  detected_text:
+```
+
+---
+
+# Critérios de sucesso da POC
+
+## Funcionais
+
+* abrir GSFAT
+* localizar telas
+* executar ações
+* extrair NF
+* finalizar workflow
+
+---
+
+## Técnicos
+
+* 5 execuções paralelas
+* sem conflito de foco
+* sem perda de sessão
+* retry automático
+
+---
+
+# Critérios de falha
+
+A POC falha se:
+
+* depender de coordenadas fixas
+* exigir intervenção humana
+* perder estabilidade em paralelo
+* não conseguir recuperar retries
+
+---
+
+# Roadmap da POC
+
+## Sprint 1
+
+* worker runtime
+* screenshot engine
+* pywinauto
+* OCR local
+
+---
+
+## Sprint 2
+
+* workflow engine
+* YAML parser
+* screen registry
+* retries
+
+---
+
+## Sprint 3
+
+* Redis queue
+* paralelismo
+* replay
+* logs
+
+---
+
+# Definição de pronto
+
+A POC estará pronta quando:
+
+```text id="jww2c0"
+Um job puder ser enviado via API
+e processado automaticamente
+em uma VM Windows isolada
+sem intervenção humana.
+```

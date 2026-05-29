@@ -1,0 +1,7 @@
+screen:
+  id: menu_principal
+
+# Textos visíveis que confirmam que o menu principal carregou
+anchors: []
+
+regions: {}

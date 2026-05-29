@@ -1,0 +1,15 @@
+screen:
+  id: tela_gsfat
+
+# Textos anchor que confirmam que a Rotina de Corte / GSFAT carregou
+anchors:
+  - text: "Faturamento"
+  - text: "Cliente"
+  - text: "TES"
+
+regions:
+  numero_nf:
+    x: 1500
+    y: 120
+    width: 250
+    height: 80

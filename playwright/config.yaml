@@ -1,0 +1,33 @@
+redis:
+  url: "redis://localhost:6379/0"
+  queue_name: "gsfat_jobs"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+logs:
+  db_path: "logs/poc_gsfat.db"
+
+paths:
+  screenshots: "screenshots"
+  replays: "replays"
+  specs: "specs"
+  templates: "specs/templates"
+
+vision:
+  screenshot_interval_ms: 500
+  ocr_confidence_threshold: 0.8
+  template_match_threshold: 0.85
+
+protheus:
+  url: "${PROTHEUS_URL}"
+  user: "${PROTHEUS_USER}"
+  password: "${PROTHEUS_PASSWORD}"
+  module: "GSFAT"
+  headless: false
+  browser_timeout_ms: 30000
+
+worker:
+  max_jobs: 1
+  isolated_session: true
