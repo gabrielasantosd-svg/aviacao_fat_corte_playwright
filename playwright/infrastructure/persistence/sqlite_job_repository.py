@@ -1,12 +1,9 @@
-"""
-SQLiteJobRepository — implementação concreta de AbstractJobRepository.
-Toda a infra de banco fica aqui; o domínio não sabe de SQLite.
-"""
+"""SQLiteJobRepository com suporte real a jobs e idempotencia local."""
 
 import json
-import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from domain.entities import Job
 from domain.repositories import AbstractJobRepository
@@ -16,15 +13,15 @@ from settings import settings
 
 class SQLiteJobRepository(AbstractJobRepository):
     def __init__(self, db_path: str = settings.LOG_DB_PATH):
-        self._db_path = db_path
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self._db_path = Path(db_path)
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()
 
-    # ── schema ────────────────────────────────────────────────────────
-
+    # Schema
     def _init_schema(self) -> None:
         with self._conn() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS jobs (
                     id          TEXT PRIMARY KEY,
                     workflow_id TEXT NOT NULL,
@@ -36,8 +33,10 @@ class SQLiteJobRepository(AbstractJobRepository):
                     result      TEXT,
                     error       TEXT
                 )
-            """)
-            conn.execute("""
+                """
+            )
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS step_logs (
                     id          INTEGER PRIMARY KEY AUTOINCREMENT,
                     job_id      TEXT NOT NULL,
@@ -48,10 +47,21 @@ class SQLiteJobRepository(AbstractJobRepository):
                     detail      TEXT,
                     FOREIGN KEY (job_id) REFERENCES jobs(id)
                 )
-            """)
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS idempotency_keys (
+                    key        TEXT PRIMARY KEY,
+                    job_id     TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT,
+                    FOREIGN KEY (job_id) REFERENCES jobs(id)
+                )
+                """
+            )
 
-    # ── AbstractJobRepository ─────────────────────────────────────────
-
+    # AbstractJobRepository
     def save(self, job: Job) -> None:
         with self._conn() as conn:
             conn.execute(
@@ -67,7 +77,7 @@ class SQLiteJobRepository(AbstractJobRepository):
                     finished_at = excluded.finished_at,
                     result      = excluded.result,
                     error       = excluded.error
-            """,
+                """,
                 {
                     "id": job.id,
                     "workflow_id": job.workflow_id,
@@ -91,7 +101,7 @@ class SQLiteJobRepository(AbstractJobRepository):
             rows = conn.execute(
                 "SELECT * FROM jobs ORDER BY rowid DESC LIMIT ?", (limit,)
             ).fetchall()
-        return [self._row_to_job(r) for r in rows]
+        return [self._row_to_job(row) for row in rows]
 
     def log_step(
         self, job_id: str, step: str, status: str, duration_ms: int, detail: str = ""
@@ -101,12 +111,47 @@ class SQLiteJobRepository(AbstractJobRepository):
                 """
                 INSERT INTO step_logs (job_id, timestamp, step, status, duration_ms, detail)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """,
+                """,
                 (job_id, datetime.utcnow().isoformat(), step, status, duration_ms, detail),
             )
 
-    # ── helpers ───────────────────────────────────────────────────────
+    def get_job_by_idempotency_key(self, key: str) -> Job | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT job_id, expires_at FROM idempotency_keys WHERE key = ?",
+                (key,),
+            ).fetchone()
 
+            if not row:
+                return None
+
+            expires_at = row["expires_at"]
+            if expires_at and datetime.fromisoformat(expires_at) < datetime.utcnow():
+                conn.execute("DELETE FROM idempotency_keys WHERE key = ?", (key,))
+                return None
+
+            job_row = conn.execute(
+                "SELECT * FROM jobs WHERE id = ?", (row["job_id"],)
+            ).fetchone()
+
+        return self._row_to_job(job_row) if job_row else None
+
+    def store_idempotency_key(self, key: str, job_id: str, ttl_hours: int = 24) -> None:
+        expires_at = datetime.utcnow() + timedelta(hours=ttl_hours)
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO idempotency_keys (key, job_id, created_at, expires_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    job_id = excluded.job_id,
+                    created_at = excluded.created_at,
+                    expires_at = excluded.expires_at
+                """,
+                (key, job_id, datetime.utcnow().isoformat(), expires_at.isoformat()),
+            )
+
+    # Helpers
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._db_path)
         conn.row_factory = sqlite3.Row

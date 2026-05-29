@@ -1,5 +1,5 @@
-"""
-run_local.py — executa um workflow diretamente, sem Celery nem Redis.
+"""Executa um workflow localmente, sem Celery nem Redis.
+
 Ideal para desenvolvimento e testes locais.
 
 Uso:
@@ -9,15 +9,15 @@ Uso:
 
 import argparse
 import logging
-import os
 import sys
 import uuid
+from pathlib import Path
 
 # Garante que o diretório do projeto está no path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# ── Configuração de logging ───────────────────────────────────────────────
-os.makedirs("logs", exist_ok=True)
+# Configuração de logging
+Path("logs").mkdir(parents=True, exist_ok=True)
 log_format = "%(asctime)s %(levelname)-8s %(name)s | %(message)s"
 logging.basicConfig(
     level=logging.INFO,
@@ -41,11 +41,11 @@ from settings import settings
 
 
 def main():
-    parser = argparse.ArgumentParser(description="POC GSFAT — runner local")
+    parser = argparse.ArgumentParser(description="POC GSFAT - runner local")
     parser.add_argument("--workflow", default="faturar_pedido", help="ID do workflow YAML")
     parser.add_argument("--headless", action="store_true", help="Rodar browser em modo headless")
     parser.add_argument(
-        "--keep-open", action="store_true", help="Manter navegador aberto após execução"
+        "--keep-open", action="store_true", help="Manter navegador aberto após a execução"
     )
     args = parser.parse_args()
 
@@ -59,7 +59,7 @@ def main():
 
     job_id = str(uuid.uuid4())
     print(f"\n{'=' * 55}")
-    print("  POC GSFAT — Execução Local")
+    print("  POC GSFAT - Execução Local")
     print(f"{'=' * 55}")
     print(f"  Workflow : {args.workflow}")
     print(f"  Job ID   : {job_id}")
@@ -70,8 +70,8 @@ def main():
     print(f"{'=' * 55}\n")
 
     # Cria as pastas necessárias
-    os.makedirs(settings.SCREENSHOTS_DIR, exist_ok=True)
-    os.makedirs(os.path.dirname(settings.LOG_DB_PATH), exist_ok=True)
+    Path(settings.SCREENSHOTS_DIR).mkdir(parents=True, exist_ok=True)
+    Path(settings.LOG_DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
     # Monta o job no banco
     repo = SQLiteJobRepository()

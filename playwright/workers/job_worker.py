@@ -20,10 +20,10 @@ error_logger = ErrorLogger("celery_worker")
 def run_workflow(self, job_id: str, workflow_id: str, variables: dict):
     """
     Task Celery executada no worker Windows.
-    1 task = 1 processo = 1 sessão Playwright isolada.
-    Toda a lógica está no WorkflowRunnerUseCase (Clean Architecture).
-    
-    Suporta Dead Letter Queue (DLQ) após max_retries.
+    1 task = 1 processo = 1 sessao Playwright isolada.
+    Toda a logica fica no WorkflowRunnerUseCase.
+
+    Suporta Dead Letter Queue, ou DLQ, apos max_retries.
     """
     # Configura contexto de trace para logs
     trace_id = str(uuid.uuid4())
@@ -49,12 +49,12 @@ def run_workflow(self, job_id: str, workflow_id: str, variables: dict):
             variables=variables,
         )
         return result
-        
+
     except Exception as exc:
         retry_count = self.request.retries
-        
+
         # Log estruturado do erro com contexto completo
-        error_context = error_logger.log_exception(
+        error_logger.log_exception(
             exc,
             message=f"Job {job_id} failed (attempt {retry_count + 1}/{self.max_retries + 1})",
             extra_context={
@@ -65,8 +65,8 @@ def run_workflow(self, job_id: str, workflow_id: str, variables: dict):
                 "task_id": self.request.id,
             },
         )
-        
-        # Se atingiu max retries e DLQ está habilitado, salva na DLQ
+
+        # Se atingiu max retries e a DLQ esta habilitada, salva na DLQ.
         if retry_count >= self.max_retries and settings.DLQ_ENABLED:
             job = repo.get(job_id)
             if job:
@@ -83,12 +83,12 @@ def run_workflow(self, job_id: str, workflow_id: str, variables: dict):
                     },
                     message=f"Job {job_id} moved to Dead Letter Queue",
                 )
-            raise  # Não retenta mais
-        
+            raise  # Nao retenta mais.
+
         # Retry com backoff exponencial
         if retry_count < self.max_retries:
-            raise self.retry(exc=exc, countdown=5 * (retry_count + 1))
+            raise self.retry(exc=exc, countdown=5 * (retry_count + 1)) from exc
         raise
-        
+
     finally:
         session.close()

@@ -1,4 +1,4 @@
-"""Base para todas as actions. Recebe a sessão do browser por injeção."""
+"""Base para todas as actions. Recebe a sessao do browser por injecao."""
 
 from abc import ABC, abstractmethod
 from typing import Any
@@ -17,7 +17,7 @@ class BaseAction(ABC):
         self.session = session
         self.sm = state_machine
         # Registro de AbstractScreenHandler por screen_id.
-        # Injetado pelo WorkflowRunnerUseCase quando há handlers registrados.
+        # Injetado pelo WorkflowRunnerUseCase quando ha handlers registrados.
         self.screen_handlers: dict = screen_handler_registry or {}
 
     @abstractmethod

@@ -1,11 +1,11 @@
 """
-BaseScreenHandler — implementação base concreta de AbstractScreenHandler.
+BaseScreenHandler - implementação base concreta de AbstractScreenHandler.
 
 Herde esta classe para criar handlers de telas específicas da UI.
 Apenas sobrescreva os métodos relevantes para aquela tela.
 
 Exemplo de uso para uma nova tela "pedidos":
-──────────────────────────────────────────────────────────────
+
     # infrastructure/screens/pedidos_handler.py
 
     from infrastructure.screens.base_screen_handler import BaseScreenHandler
@@ -16,14 +16,13 @@ Exemplo de uso para uma nova tela "pedidos":
         screen_id = "pedidos"
 
         def on_enter(self, context, session: AbstractBrowserSession) -> None:
-            # Extrai o número do pedido visível e armazena no contexto
+            # Extrai o número do pedido visível e armazena no contexto.
             numero = session.wait_and_extract_text(".numero-pedido")
             context["numero_pedido"] = numero
 
     # Em infrastructure/screens/registry.py:
     from infrastructure.screens.pedidos_handler import PedidosHandler
     SCREEN_HANDLER_REGISTRY["pedidos"] = PedidosHandler()
-──────────────────────────────────────────────────────────────
 """
 
 from typing import Any
@@ -34,7 +33,7 @@ from application.ports import AbstractBrowserSession, AbstractScreenHandler
 class BaseScreenHandler(AbstractScreenHandler):
     """Base concreta para handlers de tela.
 
-    Fornece implementações no-op de on_enter/on_exit.
+    Fornece implementações no-op de on_enter e on_exit.
     Subclasses definem `screen_id` como atributo de classe e sobrescrevem
     apenas os hooks necessários.
     """

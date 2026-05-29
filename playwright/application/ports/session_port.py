@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 
 class AbstractBrowserSession(ABC):
-    """Port: operações de browser sem acoplamento a Playwright."""
+    """Port: operacoes de browser sem acoplamento a Playwright."""
 
     @abstractmethod
     def open(self, url: str) -> None: ...
@@ -28,7 +28,7 @@ class AbstractBrowserSession(ABC):
     @abstractmethod
     def get_element_text(self, selector: str) -> str: ...
 
-    # ── Métodos de alto nível (Protheus-specific helpers) ─────────────
+    # Metodos de alto nivel (helpers especificos do Protheus)
 
     @abstractmethod
     def login(
@@ -38,17 +38,17 @@ class AbstractBrowserSession(ABC):
         initial_program: str = "",
         server_environment: str = "",
     ) -> None:
-        """Realiza o fluxo de autenticação completo."""
+        """Realiza o fluxo de autenticacao completo."""
         ...
 
     @abstractmethod
     def wait_for_text_visible(self, text: str, timeout_ms: int = 20_000) -> None:
-        """Aguarda até o texto aparecer na tela."""
+        """Aguarda ate o texto aparecer na tela."""
         ...
 
     @abstractmethod
     def click_text(self, text: str) -> None:
-        """Localiza e clica em um elemento pelo texto visível."""
+        """Localiza e clica em um elemento pelo texto visivel."""
         ...
 
     @abstractmethod
@@ -58,23 +58,23 @@ class AbstractBrowserSession(ABC):
 
     @abstractmethod
     def wait_and_extract_text(self, selector: str) -> str:
-        """Aguarda o seletor estar disponível e extrai seu texto."""
+        """Aguarda o seletor estar disponivel e extrai seu texto."""
         ...
 
     @abstractmethod
     def wait_for_app_ready(self) -> None:
-        """Aguarda o estado de pronto da aplicação (spinner, networkidle, etc.)."""
+        """Aguarda o estado de pronto da aplicacao (spinner, networkidle etc.)."""
         ...
 
     @abstractmethod
     def click_entrar_button(self) -> None:
-        """Clica no botão 'Entrar' da tela de boas-vindas/seleção de empresa."""
+        """Clica no botao 'Entrar' da tela de boas-vindas ou selecao de empresa."""
         ...
 
     @abstractmethod
     def dismiss_overlay_if_present(self) -> bool:
         """Detecta e fecha telas sobrepostas (modais/avisos) inesperadas.
 
-        Retorna True se alguma sobreposição foi fechada, False caso contrário.
+        Retorna True se alguma sobreposicao foi fechada, False caso contrario.
         """
         ...

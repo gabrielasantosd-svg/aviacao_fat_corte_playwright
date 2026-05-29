@@ -1,9 +1,7 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -19,7 +17,7 @@ if config.config_file_name is not None:
 import sys
 from pathlib import Path
 
-# Adiciona o diretório raiz ao sys.path
+# Adiciona o diretorio raiz ao sys.path.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from infrastructure.persistence.models import Base

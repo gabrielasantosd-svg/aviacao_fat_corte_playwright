@@ -7,7 +7,7 @@ from domain.value_objects import JobStatus, StepResult
 
 @dataclass
 class Job:
-    """Aggregate root — representa uma execução de workflow."""
+    """Aggregate root que representa uma execucao de workflow."""
 
     id: str
     workflow_id: str
@@ -19,9 +19,9 @@ class Job:
     result: dict[str, Any] | None = None
     error: str | None = None
     steps: list[StepResult] = field(default_factory=list)
-    completed_step_ids: set[str] = field(default_factory=set)  # Para idempotência de steps
+    completed_step_ids: set[str] = field(default_factory=set)  # Para idempotencia de steps.
 
-    # ── domain behaviours ──────────────────────────────────────────────
+    # Domain behaviours
 
     def start(self, worker_id: str) -> None:
         self.status = JobStatus.RUNNING
@@ -43,11 +43,11 @@ class Job:
 
     def add_step(self, step: StepResult) -> None:
         self.steps.append(step)
-    
+
     def is_step_completed(self, step_id: str) -> bool:
-        """Verifica se um step já foi completado (para idempotência)."""
+        """Verifica se um step ja foi completado, para idempotencia."""
         return step_id in self.completed_step_ids
-    
+
     def mark_step_completed(self, step_id: str) -> None:
         """Marca um step como completado (checkpointing)."""
         self.completed_step_ids.add(step_id)

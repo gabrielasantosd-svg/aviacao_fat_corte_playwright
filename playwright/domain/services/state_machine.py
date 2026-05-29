@@ -1,6 +1,6 @@
-"""
-StateMachine — rastreia a tela atual da sessão Protheus.
-Nunca depende de infraestrutura: recebe dados já processados.
+"""StateMachine rastreia a tela atual da sessao Protheus.
+
+Nao depende de infraestrutura: recebe dados ja processados.
 """
 
 from dataclasses import dataclass, field

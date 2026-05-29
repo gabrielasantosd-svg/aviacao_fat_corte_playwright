@@ -1,14 +1,22 @@
+import importlib
+from typing import Any
+
 from infrastructure.browser import PlaywrightSession
 from infrastructure.persistence import SQLiteJobRepository
 from infrastructure.specs import YamlWorkflowSpecRepository
 
+CeleryJobDispatcher: Any
 try:
-    from infrastructure.messaging import CeleryJobDispatcher
+    CeleryJobDispatcher = importlib.import_module("infrastructure.messaging").CeleryJobDispatcher
 except ModuleNotFoundError:
     CeleryJobDispatcher = None
 
+OCREngine: Any
+ScreenshotService: Any
 try:
-    from infrastructure.vision import OCREngine, ScreenshotService
+    vision_module = importlib.import_module("infrastructure.vision")
+    OCREngine = vision_module.OCREngine
+    ScreenshotService = vision_module.ScreenshotService
 except ModuleNotFoundError:
     ScreenshotService = None
     OCREngine = None

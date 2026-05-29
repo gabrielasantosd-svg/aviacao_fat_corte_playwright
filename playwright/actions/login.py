@@ -1,8 +1,9 @@
 """
-login — abre o Protheus e faz autenticação com credenciais do .env.
+login - abre o Protheus e faz autenticação com credenciais do .env.
 """
 
 import logging
+import time
 from typing import Any
 
 from actions.base import BaseAction
@@ -12,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 class LoginAction(BaseAction):
-    def execute(self, params: dict[str, Any], context: dict[str, Any]) -> None:
+    def execute(self, params: dict[str, Any], _context: dict[str, Any]) -> None:
         url = params.get("url", settings.PROTHEUS_URL)
         initial_program = params.get("initial_program", settings.PROTHEUS_INITIAL_PROGRAM)
         server_environment = params.get(
@@ -37,7 +38,7 @@ class LoginAction(BaseAction):
             initial_program=initial_program,
             server_environment=server_environment,
         )
-        log.info("[login] Autenticação concluída — aguardando tela de Boas-vindas")
+        log.info("[login] Autenticação concluída - aguardando tela de Boas-vindas")
 
         welcome_text = "Boas-vindas"
         self.session.wait_for_text_visible(welcome_text, timeout_ms=15000)
@@ -47,11 +48,9 @@ class LoginAction(BaseAction):
 
         log.info("[login] Clicando no botão Entrar")
         self.session.click_entrar_button()
-        log.info("[login] Botão Entrar clicado — aguardando possíveis modais")
+        log.info("[login] Botão Entrar clicado - aguardando possíveis modais")
 
         # Pequena espera para dar tempo do modal de ambiente aparecer
-        import time
-
         time.sleep(2)
 
         log.info("[login] Consumindo overlays pós-login")

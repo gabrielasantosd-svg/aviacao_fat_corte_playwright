@@ -1,12 +1,10 @@
-"""
-Serviço de autenticação JWT e API Keys.
-"""
+"""Servico de autenticacao JWT e API keys."""
 
 import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, cast
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -19,10 +17,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
-    """Serviço para autenticação JWT e API Keys."""
+    """Servico para autenticacao JWT e API keys."""
 
     @staticmethod
-    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
         """Cria um JWT access token."""
         to_encode = data.copy()
         if expires_delta:
@@ -32,15 +30,21 @@ class AuthService:
                 minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
             )
         to_encode.update({"exp": expire, "iat": datetime.utcnow()})
-        encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        encoded_jwt = cast(
+            str,
+            jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM),
+        )
         return encoded_jwt
 
     @staticmethod
-    def verify_token(token: str) -> Optional[dict]:
+    def verify_token(token: str) -> dict[str, Any] | None:
         """Verifica e decodifica um JWT token."""
         try:
-            payload = jwt.decode(
+            payload = cast(
+                dict[str, Any],
+                jwt.decode(
                 token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+                ),
             )
             return payload
         except JWTError:
@@ -64,13 +68,15 @@ class AuthService:
         return key, key_hash
 
     @staticmethod
-    def verify_api_key(db: Session, key: str) -> Optional[ApiKeyModel]:
+    def verify_api_key(db: Session, key: str) -> ApiKeyModel | None:
         """
-        Verifica se uma API key é válida.
-        Retorna o modelo ApiKeyModel se válida, None caso contrário.
+        Verifica se uma API key e valida.
+        Retorna o modelo ApiKeyModel se for valida, ou None caso contrario.
         """
         key_hash = AuthService.hash_api_key(key)
-        api_key = (
+        api_key = cast(
+            ApiKeyModel | None,
+            (
             db.query(ApiKeyModel)
             .filter(
                 ApiKeyModel.key_hash == key_hash,
@@ -78,11 +84,12 @@ class AuthService:
             )
             .first()
         )
+        )
 
         if not api_key:
             return None
 
-        # Verifica expiração
+        # Verifica expiracao.
         if api_key.expires_at and api_key.expires_at < datetime.utcnow():
             return None
 
@@ -97,7 +104,7 @@ class AuthService:
         db: Session,
         name: str,
         scopes: list[str],
-        expires_at: Optional[datetime] = None,
+        expires_at: datetime | None = None,
     ) -> tuple[str, ApiKeyModel]:
         """
         Cria um novo registro de API key no banco.

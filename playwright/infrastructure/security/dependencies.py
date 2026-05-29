@@ -1,6 +1,6 @@
-"""
-Dependencies para autenticação na API.
-"""
+"""Dependencies para autenticacao na API."""
+
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
@@ -13,12 +13,12 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 async def verify_api_key(
-    api_key: str = Security(api_key_header),
-    db: Session = Depends(get_db),
+    api_key: Annotated[str | None, Security(api_key_header)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     """
     Dependency para verificar API key em endpoints protegidos.
-    Retorna informações da API key se válida.
+    Retorna informacoes da API key se for valida.
     """
     if not api_key:
         raise HTTPException(
@@ -45,10 +45,10 @@ async def verify_api_key(
 
 def require_scope(required_scope: str):
     """
-    Dependency factory para verificar se API key tem scope específico.
+    Dependency factory para verificar se a API key tem um scope especifico.
     """
 
-    async def _verify_scope(api_key_info: dict = Depends(verify_api_key)):
+    async def _verify_scope(api_key_info: Annotated[dict, Depends(verify_api_key)]):
         if required_scope not in api_key_info["scopes"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

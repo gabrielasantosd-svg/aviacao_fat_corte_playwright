@@ -1,13 +1,14 @@
-"""
-PlaywrightSession — implementação concreta de AbstractBrowserSession.
-Controla o Protheus webapp via Playwright (Chromium).
-Cada instância = 1 contexto isolado = 1 worker.
+"""Implementacao concreta de AbstractBrowserSession com Playwright.
+
+Controla o Protheus webapp via Chromium.
+Cada instancia representa um contexto isolado por worker.
 """
 
 from __future__ import annotations
 
-import time
 import logging
+from typing import Any, cast
+import time
 
 from playwright.sync_api import (
     Browser,
@@ -22,8 +23,8 @@ from application.ports import AbstractBrowserSession
 
 log = logging.getLogger(__name__)
 
-# ── Seletores do Protheus webapp ──────────────────────────────────────────────
-# Ajuste aqui caso o HTML mude entre versões do TOTVS Cloud.
+# Seletores do Protheus webapp
+# Ajuste aqui caso o HTML mude entre versoes do TOTVS Cloud.
 
 _SEL_USER_INPUT = "input#user, input[name='user'], input[name='login'], input[placeholder*='usuário' i], input[placeholder*='user' i], input[placeholder*='sobrenome' i]"
 _SEL_PASS_INPUT = "input#password, input[name='password'], input[type='password']"
@@ -47,7 +48,7 @@ _SEL_INITIAL_OK_BTN = (
     "button:has-text('OK'), button:has-text('Ok'), input[type='button'][value='OK']"
 )
 _SEL_INITIAL_TEXT_INPUTS = "input[type='text']"
-# Seletor para o campo de pesquisa - prioriza o componente TOTVS
+# Seletor para o campo de pesquisa, priorizando o componente TOTVS.
 _SEL_SEARCH_INPUT = (
     "wa-dialog[opened] wa-text-input input, "
     "wa-dialog[opened] input[type='text'], "
@@ -83,17 +84,17 @@ _SEL_RESULTS_LOOKUP_TRIGGER = (
 _SEL_MENU_ITEM = ".po-menu-item, .menu-item, li[role='menuitem']"
 _SEL_LOADING_SPIN = ".po-loading-overlay, .thf-loading, .loading-mask"
 
-# ── Overlays/modais que devem ser fechados automaticamente ────────────────────
+# Overlays e modais a fechar automaticamente
 # Adicione aqui fragmentos de texto que identificam avisos indesejados.
 _KNOWN_OVERLAY_TEXTS = [
     "base de Desenvolvimento",
-    "ambiente de Produção não é recomendado",
+    "ambiente de Producao nao e recomendado",
     "Este ambiente utiliza",
     "Moedas",
-    "Limite de conexões excedidos",
+    "Limite de conexoes excedidos",
 ]
 
-# Seletores para botões de fechar em modais conhecidos (escopo restrito ao modal).
+# Seletores para botoes de fechar em modais conhecidos, restritos ao modal.
 _OVERLAY_CLOSE_SELECTORS = [
     "po-modal button.po-modal-close",
     ".po-modal-close button",
@@ -111,8 +112,8 @@ _OVERLAY_CLOSE_SELECTORS = [
     "button:has-text('Finalizar')",
 ]
 
-# Seletores estruturais que identificam QUALQUER modal/overlay visível no PO-UI/TOTVS,
-# independente do conteúdo de texto (para overlays desconhecidos).
+# Seletores estruturais que identificam qualquer modal ou overlay visivel no PO-UI/TOTVS,
+# independentemente do conteudo de texto, para overlays desconhecidos.
 _GENERIC_OVERLAY_SELECTORS = [
     "wa-dialog[opened]",  # TOTVS WebApp dialogs
     "po-modal[ng-reflect-hide='false']",
@@ -126,7 +127,7 @@ _GENERIC_OVERLAY_SELECTORS = [
     "thf-modal:visible",
 ]
 
-# Botões de fechar dentro de um overlay genérico detectado estruturalmente.
+# Botoes de fechar dentro de um overlay generico detectado estruturalmente.
 _GENERIC_OVERLAY_CLOSE_SELECTORS = [
     "wa-button[caption*='Fechar' i]",  # TOTVS WebApp buttons
     "wa-button[caption*='OK' i]",
@@ -157,9 +158,9 @@ class PlaywrightSession(AbstractBrowserSession):
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
-        self._page: Page | None = None
+        self._page: Page = cast(Page, None)
 
-    # ── lifecycle ─────────────────────────────────────────────────────
+    # Lifecycle
 
     def open(self, url: str) -> None:
         self._pw = sync_playwright().start()
@@ -183,7 +184,7 @@ class PlaywrightSession(AbstractBrowserSession):
         if self._pw:
             self._pw.stop()
 
-    # ── AbstractBrowserSession ────────────────────────────────────────
+    # AbstractBrowserSession
 
     def screenshot(self) -> bytes:
         return self._page.screenshot(full_page=False)
@@ -209,7 +210,7 @@ class PlaywrightSession(AbstractBrowserSession):
     def get_element_text(self, selector: str) -> str:
         return self._view().inner_text(selector)
 
-    # ── Protheus-specific helpers ─────────────────────────────────────
+    # Protheus-specific helpers
 
     def login(
         self,
@@ -218,7 +219,7 @@ class PlaywrightSession(AbstractBrowserSession):
         initial_program: str = "SIGAFAT",
         server_environment: str = "C5UQ0X_DEV",
     ) -> None:
-        """Preenche a tela inicial do Protheus e depois autentica o usuário."""
+        """Preenche a tela inicial do Protheus e depois autentica o usuario."""
         self._handle_initial_program_screen(initial_program, server_environment)
         view = self._wait_for_app_frame()
         view.wait_for_selector(_SEL_USER_INPUT, state="visible")
@@ -233,7 +234,7 @@ class PlaywrightSession(AbstractBrowserSession):
         e clica no primeiro resultado encontrado.
 
         Fluxo:
-          1. Clica no ícone/botão de pesquisa (se a input estiver oculta)
+          1. Clica no icone ou botao de pesquisa, se o input estiver oculto.
           2. Digita o nome
           3. Aguarda os resultados
           4. Clica no item correspondente
@@ -249,14 +250,14 @@ class PlaywrightSession(AbstractBrowserSession):
             time.sleep(0.5)
         except Exception as exc:
             log.debug("[session] Trigger de busca indisponivel; seguindo com campo visivel: %s", exc)
-            pass  # campo já visível, seguir em frente
+            pass  # Campo ja visivel, seguir em frente.
 
-        # 2. Aguarda o input ficar visível.
-        # Se o diálogo de resultados abrir, ele passa a ser a origem correta da busca.
+        # 2. Aguarda o input ficar visivel.
+        # Se o dialogo de resultados abrir, ele passa a ser a origem correta da busca.
         input_element = self._resolve_search_input(view, timeout_ms=10_000)
         log.debug("[session] Campo de busca/localizar resolvido")
-        
-        # Evita cliques físicos quando a UI ainda mantém overlays interceptando eventos.
+
+        # Evita cliques fisicos quando a UI ainda mantem overlays interceptando eventos.
         self._focus_input_without_pointer(input_element)
         time.sleep(0.2)
 
@@ -269,7 +270,7 @@ class PlaywrightSession(AbstractBrowserSession):
             log.debug("[session] Nao foi possivel limpar campo via teclado; tentando JavaScript: %s", exc)
             pass
         time.sleep(0.2)
-        
+
         # Limpa usando JavaScript como fallback
         try:
             input_element.evaluate(
@@ -282,17 +283,17 @@ class PlaywrightSession(AbstractBrowserSession):
         except Exception as exc:
             log.debug("[session] Limpeza via JavaScript falhou; seguindo com digitacao: %s", exc)
             pass
-        
+
         time.sleep(0.3)
-        
+
         # Digita caractere por caractere com delay maior
         for char in routine_name:
             self._page.keyboard.type(char, delay=180)
             time.sleep(0.05)
         log.info("[session] Texto da rotina digitado: %s", routine_name)
-        
+
         time.sleep(0.7)  # Aguarda o Protheus processar a busca
-        
+
         # 4. Verifica se o texto foi digitado corretamente
         try:
             typed_value = input_element.input_value()
@@ -302,7 +303,7 @@ class PlaywrightSession(AbstractBrowserSession):
                     typed_value,
                     routine_name,
                 )
-                # Se não digitou corretamente, tenta via JavaScript
+                # Se nao digitou corretamente, tenta via JavaScript.
                 input_element.evaluate(
                     """(input, value) => {
                         input.value = value;
@@ -350,7 +351,7 @@ class PlaywrightSession(AbstractBrowserSession):
         log.info("[session] Busca da rotina finalizada: %s", routine_name)
 
     def wait_for_text_visible(self, text: str, timeout_ms: int = 15_000) -> None:
-        """Aguarda texto visível buscando em todos os frames disponíveis.
+        """Aguarda texto visivel buscando em todos os frames disponiveis.
 
         Inclui o iframe dentro do Shadow DOM do wa-webview (Protheus Cloud).
         """
@@ -372,7 +373,7 @@ class PlaywrightSession(AbstractBrowserSession):
                 except Exception as exc:
                     last_exc = exc
 
-        raise TimeoutError(f"Texto '{text}' não ficou visível em {timeout_ms}ms.") from last_exc
+        raise TimeoutError(f"Texto '{text}' nao ficou visivel em {timeout_ms}ms.") from last_exc
 
     def click_text(self, text: str) -> None:
         """Clica num elemento pelo texto, buscando em todos os frames (incluindo Shadow DOM)."""
@@ -401,33 +402,33 @@ class PlaywrightSession(AbstractBrowserSession):
             except Exception:
                 pass
 
-        raise RuntimeError(f"Elemento com texto '{text}' não encontrado em nenhum frame.")
+        raise RuntimeError(f"Elemento com texto '{text}' nao encontrado em nenhum frame.")
 
     def click_entrar_button(self) -> None:
-        """Clica no botão 'Entrar' da tela de boas-vindas/seleção de empresa.
+        """Clica no botao 'Entrar' da tela de boas-vindas ou selecao de empresa.
 
         Arquitetura real do Protheus Cloud:
-          page (main) → wa-webview[shadowrootmode="open"]
-                           └─ <iframe> → Angular/PO-UI
-                                └─ <button> com span.po-button-label "Entrar"
+            page (main) -> wa-webview[shadowrootmode="open"]
+                          -> <iframe> -> Angular/PO-UI
+                              -> <button> com span.po-button-label "Entrar"
 
         O iframe fica dentro do Shadow DOM do wa-webview, portanto precisamos
-        usar frame_locator com piercing de shadow (">>") para alcançá-lo.
+        usar frame_locator com piercing de shadow (">>") para alcanca-lo.
 
-        Estratégias em cascata:
+        Estrategias em cascata:
           1. frame_locator("wa-webview >> iframe") + get_by_role
           2. page.frame(url pattern) + get_by_role / CSS
-          3. Iteração em page.frames + force=True
-          4. JavaScript click como último recurso
+          3. Iteracao em page.frames com force=True
+          4. JavaScript click como ultimo recurso
         """
         import re
 
-        # ── Estratégia 1: frame_locator com Shadow DOM piercing ─────────────
-        # Esta é a forma recomendada pelo Playwright para iframes dentro de
+        # Estrategia 1: frame_locator com Shadow DOM piercing.
+        # Esta e a forma recomendada pelo Playwright para iframes dentro de
         # Shadow DOM (wa-webview renderiza um <iframe> no seu shadow root).
         shadow_piercing_selectors = [
             "wa-webview >> iframe",
-            "wa-webview",  # alguns casos o próprio wa-webview aceita locator
+            "wa-webview",  # Em alguns casos o proprio wa-webview aceita locator.
         ]
         for fl_sel in shadow_piercing_selectors:
             try:
@@ -455,7 +456,7 @@ class PlaywrightSession(AbstractBrowserSession):
                 except Exception:
                     pass
 
-        # ── Estratégia 2: page.frame() por URL ──────────────────────────────
+        # Estrategia 2: page.frame() por URL.
         url_patterns = ["**/app-root/**", "**/preindex**", "**/index.html**"]
         for pattern in url_patterns:
             try:
@@ -469,7 +470,7 @@ class PlaywrightSession(AbstractBrowserSession):
             except Exception:
                 pass
 
-        # ── Estratégia 3: iteração em todos os frames ────────────────────────
+        # Estrategia 3: iteracao em todos os frames.
         candidates = [self._page] + list(self._page.frames)
         css_selectors = [
             "button:has(span.po-button-label:has-text('Entrar'))",
@@ -496,7 +497,7 @@ class PlaywrightSession(AbstractBrowserSession):
                 except Exception:
                     pass
 
-        # ── Estratégia 4: JavaScript click ──────────────────────────────────
+        # Estrategia 4: JavaScript click.
         for view in candidates:
             for js_sel in ["span.po-button-label", "div.po-button-container"]:
                 try:
@@ -514,7 +515,7 @@ class PlaywrightSession(AbstractBrowserSession):
                 except Exception:
                     pass
 
-        # Falhou — salva screenshot de debug e lança erro descritivo
+        # Falhou: salva screenshot de debug e lanca erro descritivo.
         try:
             import os
 
@@ -532,7 +533,7 @@ class PlaywrightSession(AbstractBrowserSession):
             self._page.screenshot(path=debug_path, full_page=True)
             print(f"[DEBUG] Screenshot salvo em: {debug_path}")
         except Exception as se:
-            print(f"[DEBUG] Não foi possível salvar screenshot: {se}")
+            print(f"[DEBUG] Nao foi possivel salvar screenshot: {se}")
 
         raise RuntimeError(
             "Botão 'Entrar' não encontrado na tela de boas-vindas. "
@@ -540,32 +541,32 @@ class PlaywrightSession(AbstractBrowserSession):
         )
 
     def dismiss_overlay_if_present(self) -> bool:
-        """Detecta e fecha telas sobrepostas inesperadas (avisos, modais TOTVS).
+        """Detecta e fecha telas sobrepostas inesperadas, como avisos e modais TOTVS.
 
-        Três passes:
+        Tres passes:
           0. wa-dialog.dict-msdialog nativo do TOTVS: usa wa-button com Shadow
-             DOM (piercing via >>) — cobre o aviso de base de Desenvolvimento.
+             DOM, com piercing via >>, cobrindo o aviso de base de Desenvolvimento.
           1. Textos conhecidos em frames normais (PO-UI / Angular).
-          2. Estrutura genérica: qualquer modal/dialog visível desconhecido.
+          2. Estrutura generica: qualquer modal ou dialogo visivel desconhecido.
 
-        Nunca lança exceção — retorna True se fechou algo, False caso contrário.
+        Nunca lanca excecao. Retorna True se fechou algo, False caso contrario.
         """
         try:
-            # ── Passe 0: qualquer wa-dialog[opened] nativo do TOTVS ────────
+            # Passe 0: qualquer wa-dialog[opened] nativo do TOTVS.
             # Cobre: aviso "base de Desenvolvimento", dialog "Moedas", e outros.
             # Estrutura comum:
             #   <wa-dialog opened>
-            #     <wa-button caption="Confirmar|Fechar|OK">  ← Shadow DOM
-            #       #shadow-root → <button><span>texto</span></button>
+            #     <wa-button caption="Confirmar|Fechar|OK">  <- Shadow DOM
+            #       #shadow-root -> <button><span>texto</span></button>
             #     </wa-button>
             #   </wa-dialog>
             try:
                 # Ordena: Confirmar primeiro (para "Moedas"), depois Fechar/OK
                 CAPTION_PRIORITY = ["Confirmar", "Fechar", "OK", "Ciente", "Entendido", "Continuar"]
 
-                # ── Estratégia direta via JavaScript ────────────────────────
-                # O wa-button pode estar aninhado em vários wa-panel dentro do
-                # wa-dialog — o Playwright não faz deep traversal em shadow roots
+                # Estrategia direta via JavaScript.
+                # O wa-button pode estar aninhado em varios wa-panel dentro do
+                # wa-dialog. O Playwright nao faz deep traversal em shadow roots
                 # encadeados via locator(). JavaScript percorre tudo recursivamente.
                 try:
                     closed = self._page.evaluate(
@@ -581,7 +582,7 @@ class PlaywrightSession(AbstractBrowserSession):
                                         if (innerBtn) { innerBtn.click(); return wb.getAttribute('caption'); }
                                     }
                                 }
-                                // Recursão em shadow roots de outros elementos
+                                // Recursao em shadow roots de outros elementos
                                 for (const el of root.querySelectorAll('*')) {
                                     if (el.shadowRoot) {
                                         const found = clickBtnInShadow(el.shadowRoot, captions);
@@ -618,8 +619,8 @@ class PlaywrightSession(AbstractBrowserSession):
                 except Exception as js_err:
                     print(f"[dismiss_overlay] JS deep traversal falhou: {js_err}")
 
-                # ── Fallback: locator direto na page (sem escopo no dialog) ─
-                # Cobre casos onde o wa-button está acessível diretamente.
+                # Fallback: locator direto na page, sem escopo no dialog.
+                # Cobre casos onde o wa-button esta acessivel diretamente.
                 for close_caption in CAPTION_PRIORITY:
                     try:
                         btn_host = self._page.locator(f"wa-button[caption='{close_caption}']")
@@ -638,7 +639,7 @@ class PlaywrightSession(AbstractBrowserSession):
                     except Exception:
                         pass
 
-                # Itera todos os wa-dialog abertos — fallback caso o JS falhe
+                # Itera todos os wa-dialog abertos como fallback, caso o JS falhe.
                 all_dlgs = self._page.locator("wa-dialog[opened]")
                 dlg_count = all_dlgs.count()
                 for i in range(dlg_count - 1, -1, -1):
@@ -665,7 +666,7 @@ class PlaywrightSession(AbstractBrowserSession):
 
             candidates = [self._page] + [f for f in self._page.frames if f != self._page.main_frame]
 
-            # ── Passe 1: textos conhecidos ─────────────────────────────────
+            # Passe 1: textos conhecidos.
             for view in candidates:
                 overlay_found = False
                 for text in _KNOWN_OVERLAY_TEXTS:
@@ -684,17 +685,17 @@ class PlaywrightSession(AbstractBrowserSession):
                 closed = self._try_close_overlay(view, _OVERLAY_CLOSE_SELECTORS, label="known")
                 if closed:
                     return True
-                # Detectou mas não fechou — continua para o passe 2
+                # Detectou, mas nao fechou; continua para o passe 2.
                 break
 
-            # ── Passe 2: estrutura genérica (overlay desconhecido) ─────────
+            # Passe 2: estrutura generica, para overlay desconhecido.
             for view in candidates:
                 for overlay_sel in _GENERIC_OVERLAY_SELECTORS:
                     try:
                         if view.locator(overlay_sel).count() == 0:
                             continue
                         view.locator(overlay_sel).first.wait_for(state="visible", timeout=600)
-                        # Há um modal visível — tenta tirar um screenshot de diagnóstico
+                        # Ha um modal visivel; tenta tirar um screenshot de diagnostico.
                         self._save_overlay_debug_screenshot()
                         closed = self._try_close_overlay(
                             view, _GENERIC_OVERLAY_CLOSE_SELECTORS, label="unknown"
@@ -705,7 +706,7 @@ class PlaywrightSession(AbstractBrowserSession):
                         pass
 
         except Exception as exc:
-            # Segurança total: nenhuma exceção pode vazar daqui e quebrar o fluxo.
+            # Seguranca total: nenhuma excecao pode vazar daqui e quebrar o fluxo.
             print(f"[dismiss_overlay] Erro interno ignorado: {exc}")
 
         return False
@@ -716,7 +717,7 @@ class PlaywrightSession(AbstractBrowserSession):
             try:
                 view.wait_for_selector(sel, state="visible", timeout=1_000)
                 view.locator(sel).first.click()
-                print(f"[dismiss_overlay] Sobreposição ({label}) fechada via: {sel!r}")
+                print(f"[dismiss_overlay] Sobreposicao ({label}) fechada via: {sel!r}")
                 # Pequena pausa para o modal terminar de fechar
                 try:
                     self._page.wait_for_timeout(500)
@@ -725,13 +726,11 @@ class PlaywrightSession(AbstractBrowserSession):
                 return True
             except Exception:
                 pass
-        print(
-            f"[dismiss_overlay] Overlay ({label}) detectado mas nenhum botão de fechar encontrado."
-        )
+        print(f"[dismiss_overlay] Overlay ({label}) detectado, mas nenhum botao de fechar foi encontrado.")
         return False
 
     def _save_overlay_debug_screenshot(self) -> None:
-        """Salva screenshot de diagnóstico quando um overlay desconhecido é detectado."""
+        """Salva screenshot de diagnostico quando um overlay desconhecido e detectado."""
         try:
             import os
 
@@ -773,20 +772,20 @@ class PlaywrightSession(AbstractBrowserSession):
         """Implementa o port: delega para o helper interno."""
         self._wait_for_app_ready()
 
-    # ── private ───────────────────────────────────────────────────────
+    # Private helpers
 
     def _wait_for_app_ready(self, timeout_ms: int = 20_000) -> None:
         """Aguarda o spinner de carregamento desaparecer.
 
         Usa 'domcontentloaded' em vez de 'networkidle' porque o Protheus Cloud
-        mantém requisições de polling em background que nunca permitem networkidle.
+        mantem requisicoes de polling em background que nunca permitem networkidle.
         """
         try:
             self._page.wait_for_selector(_SEL_LOADING_SPIN, state="hidden", timeout=timeout_ms)
         except Exception:
-            pass  # spinner pode não existir em todas as versões
-        # 'domcontentloaded' é suficiente — 'networkidle' nunca é atingido no
-        # Protheus Cloud por causa de polling contínuo de background.
+            pass  # O spinner pode nao existir em todas as versoes.
+        # 'domcontentloaded' e suficiente; 'networkidle' nunca e atingido no
+        # Protheus Cloud por causa do polling continuo em background.
         try:
             self._page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
         except Exception:
@@ -845,7 +844,7 @@ class PlaywrightSession(AbstractBrowserSession):
                 last_error = exc
 
         raise RuntimeError(
-            f"Não foi possível localizar campo para preencher '{value}'."
+            f"Nao foi possivel localizar campo para preencher '{value}'."
         ) from last_error
 
     def _fill_initial_screen_by_input_order(
@@ -883,7 +882,7 @@ class PlaywrightSession(AbstractBrowserSession):
                 return last_frame
             self._page.wait_for_timeout(250)
 
-        raise TimeoutError("App frame do Protheus não ficou disponível a tempo.")
+        raise TimeoutError("App frame do Protheus nao ficou disponivel a tempo.")
 
     def _app_frame(self) -> Frame | None:
         if not self._page:
@@ -897,16 +896,16 @@ class PlaywrightSession(AbstractBrowserSession):
 
         return None
 
-    def _all_searchable_views(self) -> list:
-        """Retorna todos os contextos pesquisáveis, incluindo o iframe dentro do
+    def _all_searchable_views(self) -> list[Any]:
+        """Retorna todos os contextos pesquisaveis, incluindo o iframe dentro do
         Shadow DOM do wa-webview (Protheus Cloud).
 
         Ordem de busca:
-          1. Frames normais acessíveis via page.frames (PO-UI, telas externas)
+          1. Frames normais acessiveis via page.frames, como PO-UI e telas externas.
           2. page principal
-          3. frame_locator('wa-webview >> iframe') — iframe dentro do Shadow DOM
+          3. frame_locator('wa-webview >> iframe') para o iframe dentro do Shadow DOM
         """
-        views: list = list(self._page.frames)  # inclui main_frame e sub-frames
+        views: list[Any] = list(self._page.frames)  # inclui main_frame e sub-frames
         if self._page not in views:
             views.insert(0, self._page)
 
@@ -914,7 +913,7 @@ class PlaywrightSession(AbstractBrowserSession):
         for fl_sel in ("wa-webview >> iframe", "wa-webview"):
             try:
                 fl = self._page.frame_locator(fl_sel)
-                # FrameLocator não é um Frame, mas suporta get_by_text/get_by_role
+                # FrameLocator nao e um Frame, mas suporta get_by_text e get_by_role.
                 views.append(fl)
                 break
             except Exception:

@@ -1,15 +1,15 @@
 """
-AbstractScreenHandler — port para handlers de tela específica.
+AbstractScreenHandler - port para handlers de tela especifica.
 
-Cada tela da aplicação pode ter um handler concreto que encapsula
-comportamentos e interações exclusivos àquela tela.
+Cada tela da aplicacao pode ter um handler concreto que encapsula
+comportamentos e interacoes exclusivos daquela tela.
 
 Quando o workflow executa wait_screen e transiciona para uma tela,
-o handler correspondente (se registrado) recebe a notificação on_enter.
-Quando sai da tela, on_exit é chamado.
+o handler correspondente, se registrado, recebe a notificacao on_enter.
+Quando sai da tela, on_exit e chamado.
 
-Isso permite isolar lógica de tela (ex: validações, extrações de dados
-padronizadas) sem poluir as actions genéricas ou o workflow YAML.
+Isso permite isolar logica de tela, como validacoes e extracoes de dados
+padronizadas, sem poluir as actions genericas ou o workflow YAML.
 
 Como adicionar uma nova tela:
     1. Crie o YAML em specs/screens/<nova_tela>.yaml
@@ -25,12 +25,12 @@ if TYPE_CHECKING:
 
 
 class AbstractScreenHandler(ABC):
-    """Port: comportamento específico de uma tela da UI."""
+    """Port: comportamento especifico de uma tela da UI."""
 
     @property
     @abstractmethod
     def screen_id(self) -> str:
-        """Identificador único da tela — deve corresponder ao ScreenSpec.id do YAML."""
+        """Identificador unico da tela; deve corresponder ao ScreenSpec.id do YAML."""
         ...
 
     def on_enter(
@@ -38,11 +38,12 @@ class AbstractScreenHandler(ABC):
         context: dict[str, Any],
         session: "AbstractBrowserSession",
     ) -> None:
-        """Chamado logo após a state machine transicionar para esta tela.
+        """Chamado logo apos a state machine transicionar para esta tela.
 
-        Use para: validações extras de âncoras, extração de dados da tela,
+        Use para: validacoes extras de ancoras, extracao de dados da tela,
         setup de contexto compartilhado entre steps.
         """
+        _ = (context, session)
 
     def on_exit(
         self,
@@ -51,5 +52,6 @@ class AbstractScreenHandler(ABC):
     ) -> None:
         """Chamado antes da state machine sair desta tela.
 
-        Use para: limpeza de estado, logging, captura de screenshots de saída.
+        Use para: limpeza de estado, logging e captura de screenshots de saida.
         """
+        _ = (context, session)

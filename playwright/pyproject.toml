@@ -52,6 +52,9 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "PLR0913", # too many arguments
     "PLR2004", # magic value comparison
+    "RUF001", # ambiguous unicode from legacy file encoding
+    "RUF002", # ambiguous unicode in docstrings from legacy file encoding
+    "RUF003", # ambiguous unicode in comments from legacy file encoding
 ]
 
 # Permitir autofix para regras específicas
@@ -62,6 +65,10 @@ unfixable = []
 # Testes podem ter imports não utilizados e asserts
 "tests/*" = ["F401", "F811"]
 "__init__.py" = ["F401"]
+"infrastructure/browser/playwright_session.py" = ["PLC0415", "PLR0912", "PLR0915", "PLR1714", "PTH100", "PTH103", "PTH118", "PTH120", "RUF005", "SIM105"]
+"migrations/env.py" = ["E402"]
+"scripts/run_local.py" = ["E402", "PLR0915"]
+"tests/conftest.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["actions", "application", "domain", "infrastructure", "presentation", "workers"]

@@ -1,9 +1,10 @@
 """
-YamlWorkflowSpecRepository — lê specs de workflows e screens de arquivos YAML.
+YamlWorkflowSpecRepository - lê specs de workflows e screens de arquivos YAML.
 Implementa a interface do domínio sem vazar paths para o domínio.
 """
 
-import os
+from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -15,10 +16,10 @@ from settings import settings
 
 class YamlWorkflowSpecRepository(AbstractWorkflowSpecRepository):
     def __init__(self, specs_dir: str = settings.SPECS_DIR):
-        self._specs_dir = specs_dir
+        self._specs_dir = Path(specs_dir)
 
     def get_workflow(self, workflow_id: str) -> WorkflowSpec:
-        path = os.path.join(self._specs_dir, "workflows", f"{workflow_id}.yaml")
+        path = self._specs_dir / "workflows" / f"{workflow_id}.yaml"
         data = self._load(path)
         wf = data["workflow"]
         rt = data.get("runtime", {})
@@ -41,7 +42,7 @@ class YamlWorkflowSpecRepository(AbstractWorkflowSpecRepository):
         )
 
     def get_screen(self, screen_id: str) -> ScreenSpec:
-        path = os.path.join(self._specs_dir, "screens", f"{screen_id}.yaml")
+        path = self._specs_dir / "screens" / f"{screen_id}.yaml"
         data = self._load(path)
         sc = data["screen"]
 
@@ -59,11 +60,11 @@ class YamlWorkflowSpecRepository(AbstractWorkflowSpecRepository):
 
         return ScreenSpec(id=sc["id"], anchors=anchors, regions=regions)
 
-    # ── private ───────────────────────────────────────────────────────
+    # Private helpers
 
     @staticmethod
-    def _load(path: str) -> dict:
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Spec não encontrada: {path}")
-        with open(path, encoding="utf-8") as f:
-            return yaml.safe_load(f)
+    def _load(path: Path) -> dict[str, Any]:
+        if not path.exists():
+            raise FileNotFoundError(f"Spec nao encontrada: {path}")
+        with path.open(encoding="utf-8") as f:
+            return cast(dict[str, Any], yaml.safe_load(f))

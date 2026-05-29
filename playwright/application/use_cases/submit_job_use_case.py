@@ -25,7 +25,7 @@ class SubmitJobResult:
 
 class SubmitJobUseCase:
     """
-    Use case para submissão de jobs com suporte a idempotência e error logging padronizado.
+    Use case para submissao de jobs com suporte a idempotencia e error logging padronizado.
     """
 
     def __init__(
@@ -40,20 +40,20 @@ class SubmitJobUseCase:
 
     def execute(self, command: SubmitJobCommand) -> SubmitJobResult:
         """
-        Executa submissão do job com tratamento de erros padronizado.
-        
+        Executa submissao do job com tratamento de erros padronizado.
+
         Args:
             command: Comando com workflow_id, variables e idempotency_key opcional
-            
+
         Returns:
             SubmitJobResult com job_id e status
-            
+
         Raises:
-            ValueError: Se dados inválidos
+            ValueError: Se dados invalidos
             Exception: Erros de infraestrutura (DB, queue, etc)
         """
         try:
-            # Verifica idempotência se key fornecida
+            # Verifica idempotencia se a key foi fornecida.
             if command.idempotency_key:
                 existing = self._repo.get_job_by_idempotency_key(command.idempotency_key)
                 if existing:
@@ -97,7 +97,7 @@ class SubmitJobUseCase:
             return SubmitJobResult(job_id=job.id, status=job.status)
 
         except ValueError as exc:
-            # Erros de validação (não faz retry)
+            # Erros de validacao: nao faz retry.
             self._error_logger.log_exception(
                 exc,
                 message="Validation error on job submission",

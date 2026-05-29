@@ -5,7 +5,7 @@ from infrastructure.vision import ScreenshotService
 
 
 class AssertTextAction(BaseAction):
-    def execute(self, params: dict[str, Any], context: dict[str, Any]) -> None:
+    def execute(self, params: dict[str, Any], _context: dict[str, Any]) -> None:
         text = params.get("value", "")
         found = self.session.find_text(text)
         if not found:
@@ -18,7 +18,7 @@ class ScreenshotAction(BaseAction):
         self._job_id = job_id
         self._svc = ScreenshotService()
 
-    def execute(self, params: dict[str, Any], context: dict[str, Any]) -> str:
+    def execute(self, params: dict[str, Any], _context: dict[str, Any]) -> str:
         label = params.get("label", "step")
         raw = self.session.screenshot()
         path = self._svc.save(raw, job_id=self._job_id or "job", label=label)
@@ -26,14 +26,14 @@ class ScreenshotAction(BaseAction):
 
 
 class WaitTextAction(BaseAction):
-    def execute(self, params: dict[str, Any], context: dict[str, Any]) -> None:
+    def execute(self, params: dict[str, Any], _context: dict[str, Any]) -> None:
         text = params.get("value", "")
         timeout = int(params.get("timeout_ms", 20_000))
         self.session.wait_for_text_visible(text, timeout_ms=timeout)
 
 
 class ExtractRegionAction(BaseAction):
-    def execute(self, params: dict[str, Any], context: dict[str, Any]) -> str:
+    def execute(self, params: dict[str, Any], _context: dict[str, Any]) -> str:
         selector = params.get("selector", "")
         if not selector:
             return ""
@@ -41,5 +41,5 @@ class ExtractRegionAction(BaseAction):
 
 
 class FinishAction(BaseAction):
-    def execute(self, params: dict[str, Any], context: dict[str, Any]) -> None:
+    def execute(self, _params: dict[str, Any], _context: dict[str, Any]) -> None:
         return None  # sinaliza fim do workflow

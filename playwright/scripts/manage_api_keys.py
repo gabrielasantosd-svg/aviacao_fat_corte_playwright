@@ -4,9 +4,9 @@ Uso: python manage_api_keys.py create "Nome da Key" --scopes jobs:read jobs:writ
 """
 
 import argparse
-import sys
 from datetime import datetime, timedelta
 
+from infrastructure.persistence.models import ApiKeyModel
 from infrastructure.persistence.postgres_job_repository import SessionLocal
 from infrastructure.security import AuthService
 
@@ -23,15 +23,15 @@ def create_key(name: str, scopes: list[str], expires_days: int | None = None):
             db=db, name=name, scopes=scopes, expires_at=expires_at
         )
 
-        print("✅ API Key criada com sucesso!")
-        print(f"🔑 Key: {key}")
-        print(f"📝 Nome: {api_key_model.name}")
-        print(f"🔒 Scopes: {', '.join(api_key_model.scopes)}")
-        print(f"📅 Criada em: {api_key_model.created_at}")
+        print("[OK] API key criada com sucesso!")
+        print(f"[INFO] Key: {key}")
+        print(f"[INFO] Nome: {api_key_model.name}")
+        print(f"[INFO] Scopes: {', '.join(api_key_model.scopes)}")
+        print(f"[INFO] Criada em: {api_key_model.created_at}")
         if expires_at:
-            print(f"⏰ Expira em: {expires_at}")
-        print("\n⚠️  IMPORTANTE: Guarde esta key em local seguro. Ela não será exibida novamente!")
-        print(f"\n🧪 Teste com:\ncurl -H 'X-API-Key: {key}' http://localhost:8000/health/deep")
+            print(f"[INFO] Expira em: {expires_at}")
+        print("\n[IMPORTANTE] Guarde esta key em local seguro. Ela nao sera exibida novamente!")
+        print(f"\n[TESTE] curl -H 'X-API-Key: {key}' http://localhost:8000/health/deep")
 
     finally:
         db.close()
@@ -39,8 +39,6 @@ def create_key(name: str, scopes: list[str], expires_days: int | None = None):
 
 def list_keys():
     """Lista todas as API keys (sem mostrar a key em si)."""
-    from infrastructure.persistence.models import ApiKeyModel
-
     db = SessionLocal()
     try:
         keys = db.query(ApiKeyModel).order_by(ApiKeyModel.created_at.desc()).all()
@@ -52,7 +50,7 @@ def list_keys():
         print(f"\n{'ID':<38} {'Nome':<25} {'Ativa':<8} {'Criada em':<20}")
         print("-" * 100)
         for key in keys:
-            status = "✅ Sim" if key.is_active else "❌ Não"
+            status = "Sim" if key.is_active else "Nao"
             created = key.created_at.strftime("%Y-%m-%d %H:%M:%S")
             print(f"{key.id:<38} {key.name:<25} {status:<8} {created:<20}")
 
@@ -62,20 +60,18 @@ def list_keys():
 
 def revoke_key(key_id: str):
     """Revoga (desativa) uma API key."""
-    from infrastructure.persistence.models import ApiKeyModel
-
     db = SessionLocal()
     try:
         api_key = db.query(ApiKeyModel).filter(ApiKeyModel.id == key_id).first()
 
         if not api_key:
-            print(f"❌ API key com ID {key_id} não encontrada.")
+            print(f"[ERRO] API key com ID {key_id} nao encontrada.")
             return
 
         api_key.is_active = False
         db.commit()
 
-        print(f"✅ API key '{api_key.name}' revogada com sucesso.")
+        print(f"[OK] API key '{api_key.name}' revogada com sucesso.")
 
     finally:
         db.close()

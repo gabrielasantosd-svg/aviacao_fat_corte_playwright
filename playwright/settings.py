@@ -1,22 +1,24 @@
-"""
-Carrega variáveis do .env e expõe como settings tipadas.
-Usado por todos os módulos do projeto.
+"""Carrega variaveis do .env e expoe settings tipadas.
+
+Usado por todos os modulos do projeto.
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def _resolve_path(value: str) -> str:
-    if os.path.isabs(value):
+    path = Path(value)
+    if path.is_absolute():
         return value
-    return os.path.join(BASE_DIR, value)
+    return str(BASE_DIR / value)
 
 
-load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(BASE_DIR / ".env")
 
 
 class Settings:
@@ -65,7 +67,7 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")  # DEBUG, INFO, WARNING, ERROR, CRITICAL
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")  # development, staging, production
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
-    
+
     OTEL_ENABLED: bool = os.getenv("OTEL_ENABLED", "false").lower() == "true"
     OTEL_EXPORTER_OTLP_ENDPOINT: str = os.getenv(
         "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"
@@ -73,7 +75,7 @@ class Settings:
     OTEL_SERVICE_NAME: str = os.getenv("OTEL_SERVICE_NAME", "gsfat-api")
     JAEGER_AGENT_HOST: str = os.getenv("JAEGER_AGENT_HOST", "localhost")
     JAEGER_AGENT_PORT: int = int(os.getenv("JAEGER_AGENT_PORT", "6831"))
-    
+
     # Sentry (Error Tracking)
     SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")  # URL do Sentry (opcional)
     SENTRY_TRACES_SAMPLE_RATE: float = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1"))

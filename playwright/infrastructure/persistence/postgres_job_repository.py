@@ -1,12 +1,10 @@
-"""
-PostgreSQL repository para jobs - substituindo SQLite.
-"""
+"""PostgreSQL repository para jobs."""
 
-import json
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Generator, Optional
+from typing import Any, cast
 
 from pybreaker import CircuitBreaker
 from sqlalchemy import create_engine, desc
@@ -26,7 +24,7 @@ from settings import settings
 # Circuit breaker para PostgreSQL
 db_breaker = CircuitBreaker(
     fail_max=settings.CIRCUIT_BREAKER_DB_FAIL_MAX,
-    timeout_duration=settings.CIRCUIT_BREAKER_DB_TIMEOUT,
+    reset_timeout=settings.CIRCUIT_BREAKER_DB_TIMEOUT,
     name="postgres_connection",
 )
 
@@ -35,7 +33,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db() -> Generator[Session, None, None]:
-    """Dependency para FastAPI obter sessão do banco."""
+    """Dependency para o FastAPI obter a sessao do banco."""
     db = SessionLocal()
     try:
         yield db
@@ -44,12 +42,12 @@ def get_db() -> Generator[Session, None, None]:
 
 
 class PostgresJobRepository(AbstractJobRepository):
-    """Implementação PostgreSQL do repositório de jobs."""
+    """Implementacao PostgreSQL do repositorio de jobs."""
 
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Session | None = None):
         """
-        Inicializa o repositório.
-        Se session não for fornecida, cria schema automaticamente.
+        Inicializa o repositorio.
+        Se a session nao for fornecida, cria o schema automaticamente.
         """
         if session is None:
             Base.metadata.create_all(bind=engine)
@@ -57,7 +55,7 @@ class PostgresJobRepository(AbstractJobRepository):
 
     @contextmanager
     def _get_session(self) -> Generator[Session, None, None]:
-        """Context manager para sessão do banco."""
+        """Context manager para sessao do banco."""
         if self._external_session:
             yield self._external_session
         else:
@@ -88,7 +86,7 @@ class PostgresJobRepository(AbstractJobRepository):
                 model.steps = [self._step_to_dict(s) for s in job.steps]
                 model.completed_step_ids = list(
                     getattr(job, "completed_step_ids", set())
-                )  # Para idempotência
+                )  # Para idempotencia.
                 model.updated_at = datetime.utcnow()
             else:
                 # Insert
@@ -110,16 +108,19 @@ class PostgresJobRepository(AbstractJobRepository):
                 session.add(model)
 
     @db_breaker
-    def get(self, job_id: str) -> Optional[Job]:
+    def get(self, job_id: str) -> Job | None:
         """Busca um job por ID."""
         with self._get_session() as session:
-            model = session.query(JobModel).filter(JobModel.id == job_id).first()
+            model = cast(JobModel | None, session.query(JobModel).filter(JobModel.id == job_id).first())
             if not model:
                 return None
             return self._model_to_entity(model)
 
+    def list_recent(self, limit: int = 50) -> list[Job]:
+        return cast(list[Job], self.list(limit=limit))
+
     @db_breaker
-    def list(self, limit: int = 50, status: Optional[JobStatus] = None) -> list[Job]:
+    def list(self, limit: int = 50, status: JobStatus | None = None) -> list[Job]:
         """Lista jobs com filtros opcionais."""
         with self._get_session() as session:
             query = session.query(JobModel).order_by(desc(JobModel.created_at))
@@ -127,24 +128,53 @@ class PostgresJobRepository(AbstractJobRepository):
             if status:
                 query = query.filter(JobModel.status == status.value)
 
-            models = query.limit(limit).all()
-            return [self._model_to_entity(m) for m in models]
+            models = cast(list[JobModel], query.limit(limit).all())
+            jobs: list[Job] = [self._model_to_entity(m) for m in models]
+            return jobs
 
-    def get_job_by_idempotency_key(self, key: str) -> Optional[Job]:
-        """Busca job por chave de idempotência."""
+    def log_step(
+        self,
+        job_id: str,
+        step: str,
+        status: str,
+        duration_ms: int,
+        detail: str = "",
+    ) -> None:
         with self._get_session() as session:
-            idem = session.query(IdempotencyKeyModel).filter(IdempotencyKeyModel.key == key).first()
+            model = cast(JobModel | None, session.query(JobModel).filter(JobModel.id == job_id).first())
+            if not model:
+                return
+
+            steps = list(model.steps or [])
+            steps.append(
+                {
+                    "step": step,
+                    "status": status,
+                    "duration_ms": duration_ms,
+                    "detail": detail,
+                }
+            )
+            model.steps = steps
+            model.updated_at = datetime.utcnow()
+
+    def get_job_by_idempotency_key(self, key: str) -> Job | None:
+        """Busca job por chave de idempotencia."""
+        with self._get_session() as session:
+            idem = cast(
+                IdempotencyKeyModel | None,
+                session.query(IdempotencyKeyModel).filter(IdempotencyKeyModel.key == key).first(),
+            )
             if not idem:
                 return None
 
-            # Verifica expiração
+            # Verifica expiracao.
             if idem.expires_at and idem.expires_at < datetime.utcnow():
                 return None
 
-            return self.get(idem.job_id)
+            return cast(Job | None, self.get(idem.job_id))
 
     def store_idempotency_key(self, key: str, job_id: str, ttl_hours: int = 24) -> None:
-        """Armazena chave de idempotência."""
+        """Armazena chave de idempotencia."""
         with self._get_session() as session:
             idem = IdempotencyKeyModel(
                 key=key,
@@ -155,9 +185,9 @@ class PostgresJobRepository(AbstractJobRepository):
             session.add(idem)
 
     def save_to_dead_letter(
-        self, job: Job, retry_count: int, original_task_id: Optional[str] = None
+        self, job: Job, retry_count: int, original_task_id: str | None = None
     ) -> None:
-        """Salva job na Dead Letter Queue após falhas consecutivas."""
+        """Salva o job na Dead Letter Queue apos falhas consecutivas."""
         with self._get_session() as session:
             dlq = DeadLetterJobModel(
                 id=str(uuid.uuid4()),
@@ -190,7 +220,7 @@ class PostgresJobRepository(AbstractJobRepository):
         return job
 
     @staticmethod
-    def _step_to_dict(step: StepResult) -> dict:
+    def _step_to_dict(step: StepResult) -> dict[str, Any]:
         """Serializa StepResult para dict."""
         return {
             "step": step.step,
@@ -201,7 +231,7 @@ class PostgresJobRepository(AbstractJobRepository):
         }
 
     @staticmethod
-    def _dict_to_step(data: dict) -> StepResult:
+    def _dict_to_step(data: dict[str, Any]) -> StepResult:
         """Desserializa dict para StepResult."""
         return StepResult(
             step=data["step"],

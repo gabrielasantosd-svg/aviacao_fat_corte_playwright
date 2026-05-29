@@ -1,6 +1,4 @@
-"""
-Healthcheck robusto que verifica todas as dependências.
-"""
+"""Healthcheck robusto que verifica todas as dependencias."""
 
 import logging
 from typing import Any
@@ -15,11 +13,11 @@ log = logging.getLogger(__name__)
 
 
 class HealthChecker:
-    """Verifica saúde de todas as dependências do sistema."""
+    """Verifica a saude de todas as dependencias do sistema."""
 
     @staticmethod
     def check_database() -> dict[str, Any]:
-        """Verifica conexão com PostgreSQL."""
+        """Verifica conexao com PostgreSQL."""
         try:
             session = SessionLocal()
             session.execute(text("SELECT 1"))
@@ -31,7 +29,7 @@ class HealthChecker:
 
     @staticmethod
     def check_redis() -> dict[str, Any]:
-        """Verifica conexão com Redis."""
+        """Verifica conexao com Redis."""
         try:
             r = redis.from_url(settings.REDIS_URL, socket_connect_timeout=2)
             r.ping()
@@ -51,7 +49,7 @@ class HealthChecker:
             "redis": HealthChecker.check_redis(),
         }
 
-        # Status agregado: só healthy se todos estiverem healthy
+        # Status agregado: so fica healthy se todos estiverem healthy.
         overall_healthy = all(check["status"] == "healthy" for check in checks.values())
 
         return {

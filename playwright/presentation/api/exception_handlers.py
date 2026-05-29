@@ -4,7 +4,6 @@ Garante respostas de erro padronizadas e logging completo.
 """
 
 import logging
-from typing import Union
 
 from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -13,6 +12,7 @@ from pybreaker import CircuitBreakerError
 from slowapi.errors import RateLimitExceeded
 
 from infrastructure.observability.metrics import ErrorLogger
+from settings import settings
 
 error_logger = ErrorLogger("api_error_handler")
 log = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
-    """Handler para erros de validação de request (Pydantic)."""
+    """Handler para erros de validacao de request (Pydantic)."""
     log.warning(
         f"Validation error on {request.method} {request.url.path}",
         extra={"errors": exc.errors(), "body": exc.body},
@@ -60,7 +60,7 @@ async def validation_exception_handler(
             "error": True,
             "error_type": "ValidationError",
             "status_code": 422,
-            "message": "Erro de validação nos dados da requisição",
+            "message": "Erro de validacao nos dados da requisicao",
             "details": exc.errors(),
             "path": str(request.url.path),
         },
@@ -88,13 +88,16 @@ async def circuit_breaker_exception_handler(
             "error": True,
             "error_type": "CircuitBreakerOpen",
             "status_code": 503,
-            "message": "Serviço temporariamente indisponível devido a falhas recentes. Tente novamente em breve.",
+            "message": "Servico temporariamente indisponivel devido a falhas recentes. Tente novamente em breve.",
             "path": str(request.url.path),
         },
     )
 
 
-async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+async def rate_limit_exception_handler(
+    request: Request,
+    _exc: RateLimitExceeded,
+) -> JSONResponse:
     """Handler para rate limit excedido."""
     log.warning(
         f"Rate limit exceeded: {request.client.host if request.client else 'unknown'} - {request.url.path}"
@@ -106,7 +109,7 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
             "error": True,
             "error_type": "RateLimitExceeded",
             "status_code": 429,
-            "message": "Limite de requisições excedido. Tente novamente mais tarde.",
+            "message": "Limite de requisicoes excedido. Tente novamente mais tarde.",
             "path": str(request.url.path),
         },
     )
@@ -114,7 +117,7 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
-    Handler genérico para exceções não tratadas.
+    Handler generico para excecoes nao tratadas.
     Captura e loga qualquer erro inesperado.
     """
     # Log completo do erro
@@ -129,9 +132,6 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
             "headers": dict(request.headers),
         },
     )
-
-    # Em produção, não expor detalhes internos
-    from settings import settings
 
     if settings.__dict__.get("DEBUG", False):
         error_message = f"{error_context['error_type']}: {error_context['error_message']}"
@@ -156,16 +156,16 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=response_content)
 
 
-def register_exception_handlers(app):
+def register_exception_handlers(app) -> None:
     """
-    Registra todos os exception handlers na aplicação FastAPI.
-    
-    Deve ser chamado durante a inicialização da app.
+    Registra todos os exception handlers na aplicacao FastAPI.
+
+    Deve ser chamado durante a inicializacao da app.
     """
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(CircuitBreakerError, circuit_breaker_exception_handler)
     app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
-    
+
     log.info("Exception handlers registered successfully")

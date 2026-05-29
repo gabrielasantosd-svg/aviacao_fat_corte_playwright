@@ -19,7 +19,7 @@ class ScreenSpec:
 
 @dataclass(frozen=True)
 class WorkflowSpec:
-    """Representa o contrato YAML de um workflow — imutável após parse."""
+    """Representa o contrato YAML de um workflow, imutavel apos o parse."""
 
     id: str
     timeout: int

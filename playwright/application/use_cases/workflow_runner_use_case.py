@@ -1,6 +1,6 @@
-"""
-WorkflowRunnerUseCase — orquestra a execução de um workflow em um worker.
-Injetado com implementações concretas de infra via DI.
+"""WorkflowRunnerUseCase orquestra a execucao de um workflow em um worker.
+
+Recebe implementacoes concretas de infraestrutura via injecao de dependencia.
 """
 
 from typing import Any
@@ -26,13 +26,14 @@ class WorkflowRunnerUseCase:
         self._screen_handlers = screen_handler_registry or {}
 
     def execute(self, job_id: str, workflow_id: str, variables: dict[str, Any]) -> dict:
+        _ = variables
         job = self._job_repo.get(job_id)
         if not job:
             raise ValueError(f"Job '{job_id}' não encontrado.")
 
         spec = self._spec_repo.get_workflow(workflow_id)
 
-        # carrega telas no state machine
+        # Carrega as telas no state machine.
         sm = StateMachine()
         for step in spec.steps:
             screen_id = step.params.get("screen")
@@ -43,7 +44,7 @@ class WorkflowRunnerUseCase:
                 except Exception:
                     pass
 
-        # instancia as actions injetando sessão, state machine e screen handlers
+        # Instancia as actions injetando sessao, state machine e screen handlers.
         enriched_registry = (
             {
                 name: cls(self._session, sm, self._screen_handlers)
