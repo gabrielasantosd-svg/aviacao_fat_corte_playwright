@@ -7,6 +7,7 @@ Cada instância = 1 contexto isolado = 1 worker.
 from __future__ import annotations
 
 import time
+import logging
 
 from playwright.sync_api import (
     Browser,
@@ -18,6 +19,8 @@ from playwright.sync_api import (
 )
 
 from application.ports import AbstractBrowserSession
+
+log = logging.getLogger(__name__)
 
 # ── Seletores do Protheus webapp ──────────────────────────────────────────────
 # Ajuste aqui caso o HTML mude entre versões do TOTVS Cloud.
@@ -46,6 +49,8 @@ _SEL_INITIAL_OK_BTN = (
 _SEL_INITIAL_TEXT_INPUTS = "input[type='text']"
 # Seletor para o campo de pesquisa - prioriza o componente TOTVS
 _SEL_SEARCH_INPUT = (
+    "wa-dialog[opened] wa-text-input input, "
+    "wa-dialog[opened] input[type='text'], "
     "wa-text-input[placeholder*='Pesquisar' i] input, "
     "wa-text-input input[placeholder*='Pesquisar' i], "
     "input.search-input, "
@@ -63,6 +68,18 @@ _SEL_SEARCH_TRIGGER = (
     ".search-icon, "
     "po-search button"
 )
+_SEL_RESULTS_DIALOG = "wa-dialog[opened][title*='Resultados da pesquisa' i], wa-dialog[opened]:has-text('Resultados da pesquisa')"
+_SEL_RESULTS_LOCALIZE_INPUT = (
+    "wa-text-input#COMP4515 input, "
+    "wa-text-input[name='cGet'] input, "
+    "input[placeholder=''], "
+    "wa-text-input input"
+)
+_SEL_RESULTS_LOOKUP_TRIGGER = (
+    "wa-image#COMP4516, "
+    "wa-image[src*='fwstd_lookup'], "
+    "wa-image[src*='lookup']"
+)
 _SEL_MENU_ITEM = ".po-menu-item, .menu-item, li[role='menuitem']"
 _SEL_LOADING_SPIN = ".po-loading-overlay, .thf-loading, .loading-mask"
 
@@ -73,6 +90,7 @@ _KNOWN_OVERLAY_TEXTS = [
     "ambiente de Produção não é recomendado",
     "Este ambiente utiliza",
     "Moedas",
+    "Limite de conexões excedidos",
 ]
 
 # Seletores para botões de fechar em modais conhecidos (escopo restrito ao modal).
@@ -90,6 +108,7 @@ _OVERLAY_CLOSE_SELECTORS = [
     "button:has-text('OK')",
     "button:has-text('Fechar')",
     "button:has-text('Confirmar')",
+    "button:has-text('Finalizar')",
 ]
 
 # Seletores estruturais que identificam QUALQUER modal/overlay visível no PO-UI/TOTVS,
@@ -126,6 +145,7 @@ _GENERIC_OVERLAY_CLOSE_SELECTORS = [
     "button:has-text('Entendido')",
     "button:has-text('Ciente')",
     "button:has-text('Continuar')",
+    "button:has-text('Finalizar')",
     "button:has-text('Close')",
 ]
 
@@ -218,46 +238,49 @@ class PlaywrightSession(AbstractBrowserSession):
           3. Aguarda os resultados
           4. Clica no item correspondente
         """
+        log.info("[session] Iniciando busca da rotina: %s", routine_name)
         view = self._find_search_view(timeout_ms=10_000)
+        log.debug("[session] View de busca localizada: %s", type(view).__name__)
 
         # 1. Tenta abrir a busca clicando no trigger (se existir)
         try:
             view.click(_SEL_SEARCH_TRIGGER, timeout=3_000)
+            log.debug("[session] Trigger de busca clicado")
             time.sleep(0.5)
-        except Exception:
+        except Exception as exc:
+            log.debug("[session] Trigger de busca indisponivel; seguindo com campo visivel: %s", exc)
             pass  # campo já visível, seguir em frente
 
-        # 2. Aguarda o input ficar visível
-        view.wait_for_selector(_SEL_SEARCH_INPUT, state="visible", timeout=10_000)
+        # 2. Aguarda o input ficar visível.
+        # Se o diálogo de resultados abrir, ele passa a ser a origem correta da busca.
+        input_element = self._resolve_search_input(view, timeout_ms=10_000)
+        log.debug("[session] Campo de busca/localizar resolvido")
         
-        # 3. Estratégia robusta de digitação
-        input_element = view.locator(_SEL_SEARCH_INPUT).first
-        
-        # Garante foco no campo
-        input_element.click()
-        time.sleep(0.4)
-        
-        # Limpa o campo de forma mais agressiva
-        input_element.focus()
+        # Evita cliques físicos quando a UI ainda mantém overlays interceptando eventos.
+        self._focus_input_without_pointer(input_element)
         time.sleep(0.2)
-        
-        # Tenta limpar com triple-click + delete
-        input_element.click(click_count=3)
-        self._page.keyboard.press("Delete")
+
+        # Limpa o campo de forma mais agressiva sem depender de ponteiro.
+        try:
+            input_element.press("Control+A")
+            input_element.press("Delete")
+            log.debug("[session] Campo de busca limpo via teclado")
+        except Exception as exc:
+            log.debug("[session] Nao foi possivel limpar campo via teclado; tentando JavaScript: %s", exc)
+            pass
         time.sleep(0.2)
         
         # Limpa usando JavaScript como fallback
         try:
-            view.evaluate(f"""
-                (selector) => {{
-                    const input = document.querySelector(selector);
-                    if (input) {{
-                        input.value = '';
-                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    }}
-                }}
-            """, _SEL_SEARCH_INPUT.split(',')[0].strip())
-        except Exception:
+            input_element.evaluate(
+                """(input) => {
+                    input.value = '';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }"""
+            )
+            log.debug("[session] Campo de busca limpo via JavaScript")
+        except Exception as exc:
+            log.debug("[session] Limpeza via JavaScript falhou; seguindo com digitacao: %s", exc)
             pass
         
         time.sleep(0.3)
@@ -266,6 +289,7 @@ class PlaywrightSession(AbstractBrowserSession):
         for char in routine_name:
             self._page.keyboard.type(char, delay=180)
             time.sleep(0.05)
+        log.info("[session] Texto da rotina digitado: %s", routine_name)
         
         time.sleep(0.7)  # Aguarda o Protheus processar a busca
         
@@ -273,20 +297,34 @@ class PlaywrightSession(AbstractBrowserSession):
         try:
             typed_value = input_element.input_value()
             if typed_value != routine_name:
+                log.warning(
+                    "[session] Valor digitado diverge do esperado. Atual='%s' Esperado='%s'",
+                    typed_value,
+                    routine_name,
+                )
                 # Se não digitou corretamente, tenta via JavaScript
-                view.evaluate(f"""
-                    (selector, value) => {{
-                        const input = document.querySelector(selector);
-                        if (input) {{
-                            input.value = value;
-                            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        }}
-                    }}
-                """, _SEL_SEARCH_INPUT.split(',')[0].strip(), routine_name)
+                input_element.evaluate(
+                    """(input, value) => {
+                        input.value = value;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }""",
+                    routine_name,
+                )
+                log.info("[session] Valor da busca corrigido via JavaScript: %s", routine_name)
                 time.sleep(0.5)
-        except Exception:
+            else:
+                log.debug("[session] Valor digitado validado com sucesso")
+        except Exception as exc:
+            log.debug("[session] Nao foi possivel validar valor digitado: %s", exc)
             pass
+
+        # No modal "Resultados da pesquisa", o Protheus so executa a busca
+        # apos clicar na lupa ao lado do campo Localizar.
+        if self._click_results_lookup_if_visible():
+            log.info("[session] Lupa do dialogo de resultados clicada")
+        else:
+            log.debug("[session] Dialogo de resultados/lupa nao visivel; seguindo fluxo normal")
 
         # 5. Aguarda resultados (dropdown/lista)
         result_sel = (
@@ -298,11 +336,18 @@ class PlaywrightSession(AbstractBrowserSession):
         try:
             view.wait_for_selector(result_sel, state="visible", timeout=8_000)
             view.click(result_sel + " >> nth=0")
-        except Exception:
+            log.info("[session] Resultado da rotina clicado: %s", routine_name)
+        except Exception as exc:
+            log.warning(
+                "[session] Resultado da rotina nao localizado por seletor; usando Enter. Rotina='%s' Erro=%s",
+                routine_name,
+                exc,
+            )
             # fallback: pressiona Enter e aguarda a tela carregar
             self._page.keyboard.press("Enter")
 
         self._wait_for_app_ready()
+        log.info("[session] Busca da rotina finalizada: %s", routine_name)
 
     def wait_for_text_visible(self, text: str, timeout_ms: int = 15_000) -> None:
         """Aguarda texto visível buscando em todos os frames disponíveis.
@@ -896,6 +941,9 @@ class PlaywrightSession(AbstractBrowserSession):
         last_exc: Exception | None = None
 
         while time.monotonic() < deadline:
+            if self._results_dialog_is_visible():
+                return self._page
+
             for view in self._search_candidate_views():
                 try:
                     try:
@@ -909,3 +957,78 @@ class PlaywrightSession(AbstractBrowserSession):
                     last_exc = exc
 
         raise TimeoutError("Campo de pesquisa do Protheus não ficou visível a tempo.") from last_exc
+
+    def _resolve_search_input(self, view: Page | Frame, timeout_ms: int = 10_000):
+        deadline = time.monotonic() + (timeout_ms / 1000)
+        last_exc: Exception | None = None
+
+        while time.monotonic() < deadline:
+            try:
+                if self._results_dialog_is_visible():
+                    dialog = self._page.locator(_SEL_RESULTS_DIALOG).last
+                    dialog.wait_for(state="visible", timeout=1_000)
+                    input_element = dialog.locator(_SEL_RESULTS_LOCALIZE_INPUT).first
+                    input_element.wait_for(state="visible", timeout=1_000)
+                    log.debug("[session] Campo Localizar encontrado no dialogo de resultados")
+                    return input_element
+            except Exception as exc:
+                last_exc = exc
+
+            try:
+                view.wait_for_selector(_SEL_SEARCH_INPUT, state="visible", timeout=1_000)
+                log.debug("[session] Campo de pesquisa encontrado na view atual")
+                return view.locator(_SEL_SEARCH_INPUT).first
+            except Exception as exc:
+                last_exc = exc
+
+        raise TimeoutError("Campo de busca não ficou visível a tempo.") from last_exc
+
+    def _click_results_lookup_if_visible(self) -> bool:
+        """Clica na lupa do dialogo 'Resultados da pesquisa', quando presente."""
+        try:
+            if not self._results_dialog_is_visible():
+                log.debug("[session] Dialogo 'Resultados da pesquisa' nao esta visivel")
+                return False
+
+            dialog = self._page.locator(_SEL_RESULTS_DIALOG).last
+            lookup = dialog.locator(_SEL_RESULTS_LOOKUP_TRIGGER).first
+            lookup.wait_for(state="visible", timeout=2_000)
+            log.debug("[session] Lupa do dialogo de resultados localizada")
+
+            try:
+                lookup.click(timeout=2_000)
+                log.debug("[session] Lupa do dialogo clicada via click normal")
+            except Exception as exc:
+                log.warning("[session] Click normal na lupa falhou; tentando force=True: %s", exc)
+                lookup.click(force=True, timeout=2_000)
+                log.debug("[session] Lupa do dialogo clicada via force=True")
+
+            time.sleep(0.7)
+            return True
+        except Exception as exc:
+            log.warning("[session] Nao foi possivel clicar na lupa do dialogo de resultados: %s", exc)
+            return False
+
+    def _results_dialog_is_visible(self) -> bool:
+        try:
+            self._page.wait_for_selector(_SEL_RESULTS_DIALOG, state="visible", timeout=300)
+            return True
+        except Exception:
+            return False
+
+    def _focus_input_without_pointer(self, locator) -> None:
+        try:
+            locator.focus()
+            return
+        except Exception:
+            pass
+
+        try:
+            locator.evaluate(
+                """(input) => {
+                    input.focus();
+                    input.dispatchEvent(new Event('focus', { bubbles: true }));
+                }"""
+            )
+        except Exception:
+            pass

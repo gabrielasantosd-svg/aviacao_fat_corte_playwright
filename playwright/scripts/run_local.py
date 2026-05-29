@@ -89,6 +89,8 @@ def main():
         screen_handler_registry=SCREEN_HANDLER_REGISTRY,
     )
 
+    error_occurred = False
+
     try:
         result = use_case.execute(
             job_id=job_id,
@@ -100,23 +102,24 @@ def main():
         print(f"     Screenshots em: {settings.SCREENSHOTS_DIR}/")
         print(f"     Logs em: {settings.LOG_DB_PATH}\n")
 
-        # Mantém navegador aberto se solicitado
-        if args.keep_open and not args.headless:
-            print("\n[INFO] Navegador mantido aberto. Pressione Enter para fechar...")
-            input()
-
     except Exception as exc:
+        error_occurred = True
         print(f"\n[ERRO] Falha na execução: {exc}\n")
 
-        # Sempre mantém navegador aberto em caso de erro (exceto headless)
-        if not args.headless:
-            print("[INFO] Navegador mantido aberto para inspeção. Pressione Enter para fechar...")
-            input()
-
-        sys.exit(1)
-
     finally:
+        # O input() precisa vir ANTES do session.close(), senão o Playwright
+        # encerra o browser junto com o processo Python.
+        if not args.headless:
+            if error_occurred:
+                print("[INFO] Navegador mantido aberto para inspeção. Pressione Enter para fechar...")
+                input()
+            elif args.keep_open:
+                print("\n[INFO] Navegador mantido aberto. Pressione Enter para fechar...")
+                input()
         session.close()
+
+    if error_occurred:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
